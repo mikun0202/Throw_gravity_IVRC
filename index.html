@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Throw Gravity | 遊べるデモサイト</title>
+  <meta name="description" content="Throw Gravity — ボトルフリップで地球と月の重力差を体験できるインタラクティブWebデモ。Three.js + cannon‑es。" />
+  <style>
+    :root{
+      --bg:#0b1020;--ink:#e8eefc;--muted:#a9b8d8;--line:rgba(255,255,255,.10);
+      --glass:rgba(255,255,255,.06);--glass2:rgba(255,255,255,.04);
+      --brand:#7aa2ff;--brand2:#9be6ff;--accent:#3be4c6;--danger:#ff7a7a;
+      --radius:18px;--shadow:0 18px 60px rgba(0,0,0,.35);
+    }
+    html,body{height:100%;margin:0;color:var(--ink);background:radial-gradient(1200px 800px at 90% -10%,rgba(122,162,255,.18),transparent 60%),radial-gradient(900px 700px at -10% 30%,rgba(155,230,255,.10),transparent 60%),var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans JP",Meiryo,sans-serif;}
+    *{box-sizing:border-box}
+    a{color:var(--brand);text-decoration:none}
+    .wrap{max-width:1200px;margin:0 auto;padding:28px 18px 64px}
+
+    /* Header */
+    header{position:sticky;top:0;z-index:20;backdrop-filter:saturate(1.2) blur(10px);background:linear-gradient(180deg,rgba(7,10,20,.75),rgba(7,10,20,.45));border-bottom:1px solid var(--line)}
+    .nav{max-width:1200px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:10px;font-weight:800}
+    .logo svg{width:22px;height:22px}
+    .nav .actions{display:flex;gap:10px}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--glass);padding:10px 14px;border-radius:12px;color:var(--ink);font-weight:600;cursor:pointer}
+    .btn:hover{transform:translateY(1px)}
+    .btn.primary{border:none;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#0b1020}
+
+    /* Hero */
+    .hero{display:grid;grid-template-columns:1.2fr 1fr;gap:26px;align-items:center;margin-top:22px}
+    .card{background:linear-gradient(180deg,var(--glass),var(--glass2));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .panel{padding:22px}
+    h1{font-size:clamp(26px,3.2vw,44px);margin:0 0 8px}
+    .lead{color:var(--muted);line-height:1.65}
+    .badgeRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .badge{border:1px solid var(--line);background:var(--glass);padding:6px 10px;border-radius:999px;font-size:12px}
+
+    /* Play area */
+    .playDock{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+    .playframe{margin-top:24px;border-radius:20px;overflow:hidden;position:relative;padding-bottom:56.25%;height:0;border:1px solid var(--line);box-shadow:var(--shadow)}
+    .playframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0a0f1f}
+    .frameOverlay{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(10,15,31,.55),rgba(10,15,31,.35));opacity:1;transition:opacity .35s ease}
+    .frameOverlay.hide{opacity:0;pointer-events:none}
+
+    /* Tips */
+    .tips{position:absolute;right:16px;top:16px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);padding:10px 12px;border-radius:12px;font-size:12px;color:var(--muted)}
+
+    /* Footer */
+    .footer{margin-top:40px;text-align:center;color:var(--muted);font-size:12px}
+
+    @media (max-width:980px){.hero{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <!-- Top bar -->
+  <header>
+    <div class="nav">
+      <div class="logo" aria-label="Throw Gravity">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h10v3l-1 2v8l1 2v3H7v-3l1-2V8L7 6V3z" stroke="url(#g)" stroke-width="1.6"/><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#7aa2ff"/><stop offset="1" stop-color="#9be6ff"/></linearGradient></defs></svg>
+        <span>Throw Gravity</span>
+      </div>
+      <div class="actions">
+        <a class="btn" href="#play">Play</a>
+        <a class="btn primary" id="openNew">Open in New Tab</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- Hero copy -->
+    <section class="hero">
+      <div class="card panel">
+        <h1>ボトルを投げて、重力を <span style='white-space:nowrap'>“変える”</span>。</h1>
+        <p class="lead">地球 (9.81 m/s²) と月 (1.62 m/s²) では、同じ投げ方でも軌道が大きく変わります。<br>Three.js + cannon‑es によるリアルタイム物理で、<b>重力の違い</b>を直感的に体験できます。</p>
+        <div class="badgeRow">
+          <span class="badge">Three.js</span>
+          <span class="badge">cannon‑es</span>
+          <span class="badge">WebGL</span>
+          <span class="badge">Interactive Physics</span>
+        </div>
+        <div class="playDock">
+          <a class="btn primary" href="#play">▶ 今すぐ遊ぶ</a>
+          <a class="btn" id="goFullscreen">全画面で表示</a>
+        </div>
+      </div>
+      <div class="card panel">
+        <div class="lead" style="opacity:.9">
+          使い方：ドラッグして離す → 投げる（長さ＝強さ / 向き＝投げ方向）<br>
+          水平ドラッグで回転トルク → ボトルフリップ！<br>
+          <b>G</b>：地球/月 切替　<b>R</b>：リセット　<b>T</b>：軌跡クリア　<b>P</b>：一時停止
+        </div>
+      </div>
+    </section>
+
+    <!-- Play section -->
+    <section id="play" style="scroll-margin-top:84px">
+      <div class="playframe" id="frameWrap">
+        <iframe id="gameFrame" src="http://localhost:5173/" title="Throw Gravity"></iframe>
+        <div class="frameOverlay" id="loading">
+          <div class="lead">読み込み中…</div>
+        </div>
+        <div class="tips">起動しない場合は上部の <b>Open in New Tab</b> を試してください。</div>
+      </div>
+    </section>
+
+    <div class="footer">© 2025 Throw Gravity • Author: You • MIT</div>
+  </div>
+
+  <script>
+    // Scroll behavior
+    document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
+      const id=a.getAttribute('href').slice(1); const el=document.getElementById(id); if(!el) return;
+      e.preventDefault(); el.scrollIntoView({behavior:'smooth',block:'start'});
+    }));
+
+    // Loading overlay
+    const iframe=document.getElementById('gameFrame');
+    const overlay=document.getElementById('loading');
+    iframe.addEventListener('load',()=>overlay.classList.add('hide'));
+
+    // Fullscreen for play area
+    document.getElementById('goFullscreen').addEventListener('click',()=>{
+      const wrap=document.getElementById('frameWrap');
+      if (wrap.requestFullscreen) wrap.requestFullscreen();
+      else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
+    });
+
+    // Open app in new tab (use the iframe src)
+    document.getElementById('openNew').addEventListener('click',()=>{
+      window.open(iframe.src,'_blank');
+    });
+  </script>
+</body>
+</html>
