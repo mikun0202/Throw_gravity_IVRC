@@ -1,135 +1,580 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Throw Gravity | 遊べるデモサイト</title>
-  <meta name="description" content="Throw Gravity — ボトルフリップで地球と月の重力差を体験できるインタラクティブWebデモ。Three.js + cannon‑es。" />
-  <style>
-    :root{
-      --bg:#0b1020;--ink:#e8eefc;--muted:#a9b8d8;--line:rgba(255,255,255,.10);
-      --glass:rgba(255,255,255,.06);--glass2:rgba(255,255,255,.04);
-      --brand:#7aa2ff;--brand2:#9be6ff;--accent:#3be4c6;--danger:#ff7a7a;
-      --radius:18px;--shadow:0 18px 60px rgba(0,0,0,.35);
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Throw Gravity — Bottle Flip: Earth × Moon</title>
+  <meta name="description" content="3Dボトルフリップ。地球と月面での軌跡の違いを体験（Three.js + cannon-es）。" />
+  <meta name="color-scheme" content="dark light">
+
+  <!-- Add import map so 'three' & addons resolve in the browser -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
     }
-    html,body{height:100%;margin:0;color:var(--ink);background:radial-gradient(1200px 800px at 90% -10%,rgba(122,162,255,.18),transparent 60%),radial-gradient(900px 700px at -10% 30%,rgba(155,230,255,.10),transparent 60%),var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans JP",Meiryo,sans-serif;}
-    *{box-sizing:border-box}
-    a{color:var(--brand);text-decoration:none}
-    .wrap{max-width:1200px;margin:0 auto;padding:28px 18px 64px}
+  }
+  </script>
 
-    /* Header */
-    header{position:sticky;top:0;z-index:20;backdrop-filter:saturate(1.2) blur(10px);background:linear-gradient(180deg,rgba(7,10,20,.75),rgba(7,10,20,.45));border-bottom:1px solid var(--line)}
-    .nav{max-width:1200px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;justify-content:space-between}
-    .logo{display:flex;align-items:center;gap:10px;font-weight:800}
-    .logo svg{width:22px;height:22px}
-    .nav .actions{display:flex;gap:10px}
-    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--glass);padding:10px 14px;border-radius:12px;color:var(--ink);font-weight:600;cursor:pointer}
-    .btn:hover{transform:translateY(1px)}
-    .btn.primary{border:none;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#0b1020}
-
-    /* Hero */
-    .hero{display:grid;grid-template-columns:1.2fr 1fr;gap:26px;align-items:center;margin-top:22px}
-    .card{background:linear-gradient(180deg,var(--glass),var(--glass2));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .panel{padding:22px}
-    h1{font-size:clamp(26px,3.2vw,44px);margin:0 0 8px}
-    .lead{color:var(--muted);line-height:1.65}
-    .badgeRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .badge{border:1px solid var(--line);background:var(--glass);padding:6px 10px;border-radius:999px;font-size:12px}
-
-    /* Play area */
-    .playDock{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
-    .playframe{margin-top:24px;border-radius:20px;overflow:hidden;position:relative;padding-bottom:56.25%;height:0;border:1px solid var(--line);box-shadow:var(--shadow)}
-    .playframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0a0f1f}
-    .frameOverlay{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(10,15,31,.55),rgba(10,15,31,.35));opacity:1;transition:opacity .35s ease}
-    .frameOverlay.hide{opacity:0;pointer-events:none}
-
-    /* Tips */
-    .tips{position:absolute;right:16px;top:16px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);padding:10px 12px;border-radius:12px;font-size:12px;color:var(--muted)}
-
-    /* Footer */
-    .footer{margin-top:40px;text-align:center;color:var(--muted);font-size:12px}
-
-    @media (max-width:980px){.hero{grid-template-columns:1fr}}
+  <!-- === Styles (inlined) === -->
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #0b1020;
+      color: #e8eefc;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans JP", Meiryo, sans-serif;
+    }
+    #ui {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: rgba(10,12,22,.6);
+      border: 1px solid rgba(255,255,255,.12);
+      padding: 10px 12px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+    }
+    #help {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      z-index: 10;
+      background: rgba(10,12,22,.6);
+      border: 1px solid rgba(255,255,255,.12);
+      padding: 10px 12px;
+      border-radius: 12px;
+      max-width: 360px;
+      line-height: 1.45;
+    }
+    button {
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      color: #e8eefc;
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      font-size: 12px;
+    }
+    canvas { display: block; }
+    label.checkbox { display:inline-flex; align-items:center; gap:6px; font-size:12px; }
+    input[type='checkbox']{ accent-color:#6ab0ff; }
+    input[type='range']{ accent-color:#6ab0ff; }
   </style>
 </head>
 <body>
-  <!-- Top bar -->
-  <header>
-    <div class="nav">
-      <div class="logo" aria-label="Throw Gravity">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 3h10v3l-1 2v8l1 2v3H7v-3l1-2V8L7 6V3z" stroke="url(#g)" stroke-width="1.6"/><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#7aa2ff"/><stop offset="1" stop-color="#9be6ff"/></linearGradient></defs></svg>
-        <span>Throw Gravity</span>
-      </div>
-      <div class="actions">
-        <a class="btn" href="#play">Play</a>
-        <a class="btn primary" id="openNew">Open in New Tab</a>
-      </div>
-    </div>
-  </header>
+  <div id="ui">
+    <span class="pill" id="mode">地球 9.81 m/s²</span>
+    <button id="earthBtn">地球</button>
+    <button id="moonBtn">月面</button>
+    <button id="resetBtn">リセット</button>
+    <button id="clearTrailBtn">軌跡クリア</button>
 
-  <div class="wrap">
-    <!-- Hero copy -->
-    <section class="hero">
-      <div class="card panel">
-        <h1>ボトルを投げて、重力を <span style='white-space:nowrap'>“変える”</span>。</h1>
-        <p class="lead">地球 (9.81 m/s²) と月 (1.62 m/s²) では、同じ投げ方でも軌道が大きく変わります。<br>Three.js + cannon‑es によるリアルタイム物理で、<b>重力の違い</b>を直感的に体験できます。</p>
-        <div class="badgeRow">
-          <span class="badge">Three.js</span>
-          <span class="badge">cannon‑es</span>
-          <span class="badge">WebGL</span>
-          <span class="badge">Interactive Physics</span>
-        </div>
-        <div class="playDock">
-          <a class="btn primary" href="#play">▶ 今すぐ遊ぶ</a>
-          <a class="btn" id="goFullscreen">全画面で表示</a>
-        </div>
-      </div>
-      <div class="card panel">
-        <div class="lead" style="opacity:.9">
-          使い方：ドラッグして離す → 投げる（長さ＝強さ / 向き＝投げ方向）<br>
-          水平ドラッグで回転トルク → ボトルフリップ！<br>
-          <b>G</b>：地球/月 切替　<b>R</b>：リセット　<b>T</b>：軌跡クリア　<b>P</b>：一時停止
-        </div>
-      </div>
-    </section>
+    <label class="checkbox" title="水の量（重心と慣性に影響）">
+      水量
+      <input id="fillSlider" type="range" min="0" max="1" value="0.5" step="0.05" style="width:130px">
+      <span id="fillValue" class="pill" style="padding:2px 6px">50%</span>
+    </label>
 
-    <!-- Play section -->
-    <section id="play" style="scroll-margin-top:84px">
-      <div class="playframe" id="frameWrap">
-        <iframe id="gameFrame" src="http://localhost:5173/" title="Throw Gravity"></iframe>
-        <div class="frameOverlay" id="loading">
-          <div class="lead">読み込み中…</div>
-        </div>
-        <div class="tips">起動しない場合は上部の <b>Open in New Tab</b> を試してください。</div>
-      </div>
-    </section>
-
-    <div class="footer">© 2025 Throw Gravity • Author: You • MIT</div>
+    <label class="checkbox"><input id="predictToggle" type="checkbox" checked>軌道比較を表示</label>
+    <span class="pill" id="status">Ready</span>
+    <span class="pill" id="score">成功 0 / 試行 0</span>
   </div>
 
-  <script>
-    // Scroll behavior
-    document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
-      const id=a.getAttribute('href').slice(1); const el=document.getElementById(id); if(!el) return;
-      e.preventDefault(); el.scrollIntoView({behavior:'smooth',block:'start'});
+  <div id="help">
+    <div style="font-weight:600;margin-bottom:6px">操作</div>
+    ドラッグして離す：投げる（長さ＝強さ、向き＝投げ方向）<br>
+    水平ドラッグで回転が増加。狙ってボトルフリップ！<br>
+    <b>G</b>：地球/月 切替　<b>R</b>：リセット　<b>T</b>：軌跡クリア　<b>P</b>：一時停止
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
+
+    // === Constants ===
+    const G_EARTH = 9.81;
+    const G_MOON = 1.62;
+    let currentMode = 'earth';
+    let paused = false;
+    let showPrediction = true;
+
+    // === Renderer / Scene / Camera ===
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1020);
+    scene.fog = new THREE.Fog(0x0b1020, 30, 90);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+    camera.position.set(0, 2.0, 7.5);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxDistance = 30;
+    controls.minDistance = 3;
+    controls.target.set(0, 1.1, 0);
+
+    // === Lights ===
+    const hemi = new THREE.HemisphereLight(0xb8ccff, 0x10121a, 0.9);
+    scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+    dir.position.set(3, 6, 2);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(2048, 2048);
+    dir.shadow.camera.near = 0.2;
+    dir.shadow.camera.far = 50;
+    dir.shadow.camera.left = -8;
+    dir.shadow.camera.right = 8;
+    dir.shadow.camera.top = 8;
+    dir.shadow.camera.bottom = -8;
+    scene.add(dir);
+
+    // Optional: stars for Moon mode
+    const stars = (()=>{
+      const g = new THREE.BufferGeometry();
+      const N = 800;
+      const pts = new Float32Array(N*3);
+      for(let i=0;i<N;i++){
+        const r = 80 + Math.random()*60;
+        const t = Math.random()*Math.PI*2;
+        const p = Math.acos(2*Math.random()-1);
+        const x = r*Math.cos(t)*Math.sin(p);
+        const y = r*Math.cos(p);
+        const z = r*Math.sin(t)*Math.sin(p);
+        pts[i*3+0]=x; pts[i*3+1]=y; pts[i*3+2]=z;
+      }
+      g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      const m = new THREE.PointsMaterial({ size: 0.6, sizeAttenuation: true, transparent: true, opacity: 0.8 });
+      const pnts = new THREE.Points(g, m);
+      pnts.visible = false;
+      scene.add(pnts);
+      return pnts;
+    })();
+
+    // === Physics World ===
+    const world = new CANNON.World();
+    world.gravity.set(0, -G_EARTH, 0);
+    world.solver.iterations = 15;
+    world.solver.tolerance = 0.001;
+
+    const groundMat = new CANNON.Material('ground');
+    const bottleMat = new CANNON.Material('bottle');
+    world.addContactMaterial(new CANNON.ContactMaterial(groundMat, bottleMat, {
+      friction: 0.45,
+      restitution: 0.25,
+      contactEquationStiffness: 1e7,
+      contactEquationRelaxation: 3
     }));
 
-    // Loading overlay
-    const iframe=document.getElementById('gameFrame');
-    const overlay=document.getElementById('loading');
-    iframe.addEventListener('load',()=>overlay.classList.add('hide'));
+    // === Floor ===
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(120, 120),
+      new THREE.MeshStandardMaterial({ color: 0x1a2038, metalness: 0.1, roughness: 0.9 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-    // Fullscreen for play area
-    document.getElementById('goFullscreen').addEventListener('click',()=>{
-      const wrap=document.getElementById('frameWrap');
-      if (wrap.requestFullscreen) wrap.requestFullscreen();
-      else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
+    const floorBody = new CANNON.Body({ mass: 0, material: groundMat });
+    floorBody.addShape(new CANNON.Plane());
+    floorBody.quaternion.setFromEuler(-Math.PI/2, 0, 0);
+    world.addBody(floorBody);
+
+    // === Bottle ===
+    const bottle = { mesh: null, water: null, body: null, height: 0.28, rTop: 0.03, rBottom: 0.04 };
+    let fillRatio = 0.5; // 0..1
+
+    function rebuildBottleShapes() {
+      const { body, height: h, rTop, rBottom } = bottle;
+      // Remove all shapes safely
+      while (body.shapes.length) body.removeShape(body.shapes[0]);
+
+      // Plastic shell
+      const cyl = new CANNON.Cylinder(rTop, rBottom, h, 16);
+      const q = new CANNON.Quaternion();
+      q.setFromEuler(Math.PI/2, 0, 0, 'XYZ'); // align to Y
+      body.addShape(cyl, new CANNON.Vec3(), q);
+
+      // "Water" mass to lower COM
+      const waterHeight = Math.max(0.02, h * (0.15 + 0.7 * fillRatio));
+      const waterRadius = Math.max(0.015, rBottom * (0.7 + 0.25 * fillRatio));
+      const waterCyl = new CANNON.Cylinder(waterRadius, waterRadius, waterHeight, 12);
+      const q2 = new CANNON.Quaternion();
+      q2.setFromEuler(Math.PI/2, 0, 0, 'XYZ');
+      const yOff = -h * 0.5 + (waterHeight * 0.5) + 0.01; // near bottom
+      body.addShape(waterCyl, new CANNON.Vec3(0, yOff, 0), q2);
+
+      // Mass scales with fill
+      const baseMass = 0.35; // plastic bottle
+      const waterMass = 0.65 * fillRatio;
+      body.mass = baseMass + waterMass;
+      body.updateMassProperties();
+    }
+
+    function createBottle() {
+      const h = bottle.height;
+      const rTop = bottle.rTop;
+      const rBottom = bottle.rBottom;
+      const geo = new THREE.CylinderGeometry(rTop*1.08, rBottom*1.08, h, 32);
+      const mat = new THREE.MeshPhysicalMaterial({ color: 0x88b4ff, transparent: true, opacity: 0.9, roughness: 0.3, metalness: 0.0, clearcoat: 0.5, clearcoatRoughness: 0.4 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      scene.add(mesh);
+
+      // Visual cap
+      const capGeo = new THREE.TorusGeometry(rTop*0.9, 0.006, 8, 24);
+      const capMat = new THREE.MeshStandardMaterial({ color: 0xd6e7ff, metalness: 0.1, roughness: 0.3 });
+      const cap = new THREE.Mesh(capGeo, capMat);
+      cap.position.y = h*0.5 - 0.02;
+      cap.rotation.x = Math.PI/2;
+      mesh.add(cap);
+
+      // Internal water visual
+      const waterMat = new THREE.MeshPhysicalMaterial({ color: 0x2ea0ff, transparent: true, opacity: 0.35, roughness: 0.6, metalness: 0.0 });
+      const waterMesh = new THREE.Mesh(new THREE.CylinderGeometry(rBottom*0.95, rBottom*0.95, h*0.4, 24), waterMat);
+      waterMesh.position.y = -h*0.3;
+      mesh.add(waterMesh);
+
+      const body = new CANNON.Body({ mass: 0.55, material: bottleMat, allowSleep: true });
+      body.sleepTimeLimit = 0.6;
+      body.sleepSpeedLimit = 0.12;
+
+      bottle.mesh = mesh;
+      bottle.water = waterMesh;
+      bottle.body = body;
+      rebuildBottleShapes();
+      world.addBody(body);
+      resetBottle();
+    }
+
+    function resetBottle() {
+      bottle.body.position.set(0, 1.2, 0);
+      bottle.body.velocity.setZero();
+      bottle.body.angularVelocity.setZero();
+      bottle.body.quaternion.set(0, 0, 0, 1);
+      bottle.mesh.position.copy(bottle.body.position);
+      bottle.mesh.quaternion.copy(bottle.body.quaternion);
+      setStatus('Ready');
+    }
+
+    function updateWaterVisual(){
+      if(!bottle.water) return;
+      const h = bottle.height;
+      const minH = 0.04;
+      const waterH = Math.max(minH, h * (0.1 + 0.8*fillRatio));
+      const r = bottle.rBottom*0.95;
+      bottle.mesh.remove(bottle.water);
+      const waterMat = new THREE.MeshPhysicalMaterial({ color: 0x2ea0ff, transparent: true, opacity: 0.35, roughness: 0.6, metalness: 0.0 });
+      const newWater = new THREE.Mesh(new THREE.CylinderGeometry(r, r, waterH, 24), waterMat);
+      newWater.position.y = -h*0.5 + waterH*0.5 + 0.01;
+      bottle.mesh.add(newWater);
+      bottle.water = newWater;
+    }
+
+    // === Trails & Prediction ===
+    const trailLines = [];
+    let currentTrail = null;
+    let predictedGroup = null;
+
+    function makeTrail(color=0x6ab0ff){
+      const geom = new THREE.BufferGeometry();
+      const positions = new Float32Array(3*2000); // up to ~2000 points
+      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geom.setDrawRange(0, 0);
+      const mat = new THREE.LineBasicMaterial({ transparent:true, opacity:0.9 });
+      mat.color.setHex(color);
+      const line = new THREE.Line(geom, mat);
+      line.frustumCulled = false;
+      return { line, geom, positions, count:0 };
+    }
+
+    function ensureCurrentTrail(){
+      if(!currentTrail){
+        currentTrail = makeTrail(currentMode === 'earth' ? 0x4da3ff : 0xb7b7d0);
+        scene.add(currentTrail.line);
+        trailLines.push(currentTrail.line);
+      }
+    }
+
+    function clearTrails(){
+      trailLines.forEach(l => scene.remove(l));
+      trailLines.length = 0;
+      currentTrail = null;
+    }
+
+    function addTrailPoint(pos){
+      ensureCurrentTrail();
+      const t = currentTrail;
+      if(t.count >= t.positions.length/3) return;
+      t.positions[t.count*3+0] = pos.x;
+      t.positions[t.count*3+1] = pos.y;
+      t.positions[t.count*3+2] = pos.z;
+      t.count++;
+      t.geom.attributes.position.needsUpdate = true;
+      t.geom.setDrawRange(0, t.count);
+    }
+
+    function removePrediction(){
+      if(predictedGroup){
+        scene.remove(predictedGroup);
+        predictedGroup.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+        predictedGroup = null;
+      }
+    }
+
+    function drawPredictedPaths(p0, v0){
+      removePrediction();
+      if(!showPrediction) return;
+      predictedGroup = new THREE.Group();
+      scene.add(predictedGroup);
+
+      const variants = [
+        { g: G_EARTH, color: 0x4da3ff, name: 'Earth' },
+        { g: G_MOON,  color: 0xb7b7d0, name: 'Moon' },
+      ];
+
+      for(const {g,color} of variants){
+        const curve = computeBallisticCurve(p0, v0, g);
+        if(curve.length < 2) continue;
+        const arr = new Float32Array(curve.length*3);
+        for(let i=0;i<curve.length;i++){
+          const p = curve[i];
+          arr[i*3+0]=p.x; arr[i*3+1]=p.y; arr[i*3+2]=p.z;
+        }
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(arr,3));
+        const mat = new THREE.LineDashedMaterial({ dashSize:0.25, gapSize:0.15, transparent:true, opacity:0.9 });
+        mat.color.setHex(color);
+        const line = new THREE.Line(geom, mat);
+        line.computeLineDistances();
+        predictedGroup.add(line);
+      }
+    }
+
+    function computeBallisticCurve(p0, v0, g){
+      const y0 = p0.y;
+      const vy = v0.y;
+      const disc = vy*vy + 2*g*y0;
+      if(disc < 0) return [];
+      const tEnd = (vy + Math.sqrt(disc)) / g; // positive root
+      const steps = Math.max(12, Math.min(160, Math.ceil(tEnd/0.02)));
+      const out = [];
+      for(let i=0;i<=steps;i++){
+        const t = tEnd * (i/steps);
+        const x = p0.x + v0.x * t;
+        const y = p0.y + v0.y * t - 0.5 * g * t * t;
+        const z = p0.z + v0.z * t;
+        out.push(new THREE.Vector3(x,y,z));
+      }
+      return out;
+    }
+
+    // === UI ===
+    const el = {
+      mode: document.getElementById('mode'),
+      status: document.getElementById('status'),
+      earth: document.getElementById('earthBtn'),
+      moon: document.getElementById('moonBtn'),
+      reset: document.getElementById('resetBtn'),
+      clearTrail: document.getElementById('clearTrailBtn'),
+      predict: document.getElementById('predictToggle'),
+      fillSlider: document.getElementById('fillSlider'),
+      fillValue: document.getElementById('fillValue'),
+      score: document.getElementById('score'),
+    };
+
+    function setMode(mode){
+      currentMode = mode;
+      const g = (mode === 'earth') ? G_EARTH : G_MOON;
+      world.gravity.set(0, -g, 0);
+      el.mode.textContent = (mode === 'earth') ? `地球 ${G_EARTH} m/s²` : `月面 ${G_MOON} m/s²`;
+      if(mode === 'moon'){
+        scene.background = new THREE.Color(0x070914);
+        scene.fog.color.set(0x070914);
+        hemi.intensity = 0.6;
+        dir.intensity = 0.9;
+        stars.visible = true;
+      }else{
+        scene.background = new THREE.Color(0x0b1020);
+        scene.fog.color.set(0x0b1020);
+        hemi.intensity = 0.9;
+        dir.intensity = 1.0;
+        stars.visible = false;
+      }
+    }
+
+    function setStatus(text){ el.status.textContent = text; }
+
+    el.earth.addEventListener('click', ()=> setMode('earth'));
+    el.moon.addEventListener('click', ()=> setMode('moon'));
+    el.reset.addEventListener('click', ()=> resetBottle());
+    el.clearTrail.addEventListener('click', ()=> clearTrails());
+    el.predict.addEventListener('change', (e)=>{ showPrediction = !!e.target.checked; if(!showPrediction) removePrediction(); });
+
+    el.fillSlider.addEventListener('input', (e)=>{
+      const v = parseFloat(e.target.value);
+      fillRatio = Math.min(1, Math.max(0, v));
+      el.fillValue.textContent = `${Math.round(fillRatio*100)}%`;
+      rebuildBottleShapes();
+      updateWaterVisual();
     });
 
-    // Open app in new tab (use the iframe src)
-    document.getElementById('openNew').addEventListener('click',()=>{
-      window.open(iframe.src,'_blank');
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'g' || e.key === 'G') setMode(currentMode === 'earth' ? 'moon' : 'earth');
+      if(e.key === 'r' || e.key === 'R') resetBottle();
+      if(e.key === 't' || e.key === 'T') clearTrails();
+      if(e.key === 'p' || e.key === 'P') paused = !paused;
     });
+
+    // === Input / Throw mechanics ===
+    let isPointerDown = false;
+    let pStart = new THREE.Vector2();
+    let pEnd = new THREE.Vector2();
+    let tStart = 0;
+    let lastTrailAddTime = 0;
+    let attemptActive = false;
+    let tries = 0, successes = 0;
+
+    function updateScore(){
+      el.score.textContent = `成功 ${successes} / 試行 ${tries}`;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (ev)=>{
+      isPointerDown = true;
+      pStart.set(ev.clientX, ev.clientY);
+      pEnd.copy(pStart);
+      tStart = performance.now();
+      controls.enabled = false;
+      try{ renderer.domElement.setPointerCapture(ev.pointerId); }catch{}
+      ev.preventDefault();
+    });
+
+    renderer.domElement.addEventListener('pointermove', (ev)=>{
+      if(!isPointerDown) return;
+      pEnd.set(ev.clientX, ev.clientY);
+    });
+
+    renderer.domElement.addEventListener('pointerup', (ev)=>{
+      if(!isPointerDown) return;
+      isPointerDown = false;
+      const dt = Math.max(0.05, (performance.now() - tStart)/1000);
+      const drag = new THREE.Vector2(pEnd.x - pStart.x, pEnd.y - pStart.y);
+
+      // Map screen drag -> world velocity
+      const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).normalize();
+      const forward = new THREE.Vector3(); camera.getWorldDirection(forward).normalize(); // points towards -Z
+      const up = new THREE.Vector3(0,1,0);
+
+      const k = 0.006; // velocity scale
+      const vWorld = new THREE.Vector3();
+      vWorld.addScaledVector(right,  (drag.x/dt) * k);
+      vWorld.addScaledVector(up,    (-drag.y/dt) * k * 1.25);
+      vWorld.addScaledVector(forward,(-drag.y/dt) * k * 0.55);
+
+      // Angular velocity: end-over-end around camera right, some yaw from horizontal drag
+      const kw1 = 0.025, kwYaw = 0.01;
+      const ang = new THREE.Vector3();
+      ang.addScaledVector(right, (-drag.y/dt) * kw1);
+      ang.addScaledVector(up,    (drag.x/dt) * kwYaw);
+
+      // Clamp
+      const vmax = 14; if(vWorld.length() > vmax) vWorld.setLength(vmax);
+      const wmax = 18; if(ang.length() > wmax) ang.setLength(wmax);
+
+      // Apply to body
+      bottle.body.velocity.set(vWorld.x, vWorld.y, vWorld.z);
+      bottle.body.angularVelocity.set(ang.x, ang.y, ang.z);
+
+      // Start a new trail for this throw
+      currentTrail = null; // will lazily create with current mode color
+      lastTrailAddTime = performance.now();
+
+      // Predicted paths for both gravities from current state
+      drawPredictedPaths(
+        new THREE.Vector3(bottle.body.position.x, bottle.body.position.y, bottle.body.position.z),
+        vWorld.clone()
+      );
+
+      setStatus('Throw!');
+      controls.enabled = true;
+      try{ renderer.domElement.releasePointerCapture(ev.pointerId); }catch{}
+      attemptActive = true;
+      tries += 1; updateScore();
+    });
+
+    // === Resize ===
+    window.addEventListener('resize', ()=>{
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // === Main Loop ===
+    const clock = new THREE.Clock();
+    let accum = 0;
+    const fixedDt = 1/60;
+
+    function animate(){
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      if(!paused){
+        accum += dt;
+        while(accum >= fixedDt){
+          world.step(fixedDt);
+          accum -= fixedDt;
+        }
+      }
+
+      // Sync graphics
+      bottle.mesh.position.copy(bottle.body.position);
+      bottle.mesh.quaternion.copy(bottle.body.quaternion);
+
+      // Trail while airborne or moving fast
+      const vlen = bottle.body.velocity.length();
+      const now = performance.now();
+      if(vlen > 0.2 && (now - lastTrailAddTime) > 12){
+        addTrailPoint(bottle.mesh.position);
+        lastTrailAddTime = now;
+      }
+
+      // Success/landed status
+      if(attemptActive && (bottle.body.sleepState === 2 || vlen < 0.06)){
+        const upVec = new THREE.Vector3(0,1,0).applyQuaternion(bottle.mesh.quaternion).normalize();
+        const upright = upVec.dot(new THREE.Vector3(0,1,0));
+        if(upright > 0.97 && bottle.mesh.position.y < 0.165){
+          setStatus('Success!');
+          successes += 1; updateScore();
+        } else {
+          setStatus('Landed');
+        }
+        attemptActive = false;
+      }
+
+      controls.update();
+      renderer.render(scene,camera);
+    }
+
+    createBottle();
+    setMode('earth');
+    animate();
   </script>
 </body>
 </html>
